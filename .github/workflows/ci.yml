@@ -21,13 +21,6 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U ticketnow -d ticketnow"
           --health-interval 5s --health-timeout 3s --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 10
       rabbitmq:
         image: rabbitmq:3.13-management-alpine
         env:
@@ -55,7 +48,10 @@ jobs:
       - name: Test (unit + integración + e2e contra servicios reales)
         env:
           TICKETNOW_TEST_POSTGRES: "Host=localhost;Port=5432;Database=ticketnow;Username=ticketnow;Password=ticketnow"
-          TICKETNOW_TEST_REDIS: "localhost:6379"
+          # SIN TICKETNOW_TEST_REDIS a propósito: cada clase levanta su propio
+          # Redis con Testcontainers. Compartir uno solo contamina el keyspace
+          # global y el Reconciliador "repara" contadores de otros tests
+          # (docs/05 §5.1bis). Testcontainers funciona en ubuntu-latest.
           TICKETNOW_TEST_RABBITMQ_HOST: localhost
           TICKETNOW_TEST_RABBITMQ_PORT: 5672
           TICKETNOW_TEST_RABBITMQ_USER: ticketnow
