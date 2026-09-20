@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: ticketnow-services
+    static_configs:
+      - targets:
+          - gateway:8080
+          - queue-service:8080
+          - catalog-service:8080
+          - inventory-service:8080
+          - orders-service:8080
+          - notifications-service:8080

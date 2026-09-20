@@ -1,0 +1,286 @@
+name: ticketnow
+
+services:
+  # --- Borde: emulación local del CDN (ADR-008, docs/02-arquitectura.md) ---
+  edge-cache:
+    image: nginx:1.27-alpine
+    ports:
+      - "${EDGE_PORT:-8090}:80"
+    volumes:
+      - ./deploy/edge-cache/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - edge-cache-data:/var/cache/nginx
+    depends_on:
+      gateway:
+        condition: service_healthy
+      spa:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/edge-healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - frontend
+
+  # --- SPA React (origen de estáticos; el edge la cachea) ---
+  spa:
+    build:
+      context: .
+      dockerfile: src/spa/Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - frontend
+
+  # --- Gateway (YARP): routing, rate limit, admission token (Fase 4) ---
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      Queue__AdmissionSigningKey: ${QUEUE_ADMISSION_KEY:-dev-queue-key-no-usar-en-produccion-rotar-via-env-32b}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    depends_on:
+      queue-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      orders-service:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+
+  # --- Servicios .NET 8 (sin estado; escalar con --scale) ---
+  queue-service:
+    build:
+      context: .
+      dockerfile: src/QueueService/Dockerfile
+    environment: &service-env
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=ticketnow;Username=ticketnow;Password=${POSTGRES_PASSWORD:-ticketnow};Keepalive=5;Connection Idle Lifetime=30
+      ConnectionStrings__Redis: redis:6379
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ticketnow
+      RabbitMq__Pass: ${RABBITMQ_PASSWORD:-ticketnow}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # Clave de firma de admission tokens (la usan gateway y queue-service)
+      Queue__AdmissionSigningKey: ${QUEUE_ADMISSION_KEY:-dev-queue-key-no-usar-en-produccion-rotar-via-env-32b}
+      # Clave de firma de JWT de usuario (Fase 6, solo gateway; mock didáctico)
+      Auth__UserSigningKey: ${AUTH_USER_KEY:-dev-user-key-no-usar-en-produccion-rotar-via-env-32b0}
+      # URLs internas (en host van por appsettings; en compose, por nombre de servicio)
+      Catalog__BaseUrl: http://catalog-service:8080
+      Inventory__BaseUrl: http://inventory-service:8080
+    healthcheck: &service-health
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    depends_on: &infra-deps
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: src/CatalogService/Dockerfile
+    environment: *service-env
+    healthcheck: *service-health
+    depends_on: *infra-deps
+    networks:
+      - backend
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: src/InventoryService/Dockerfile
+    environment: *service-env
+    healthcheck: *service-health
+    depends_on: *infra-deps
+    networks:
+      - backend
+
+  orders-service:
+    build:
+      context: .
+      dockerfile: src/OrdersService/Dockerfile
+    environment: *service-env
+    healthcheck: *service-health
+    depends_on: *infra-deps
+    networks:
+      - backend
+
+  notifications-service:
+    build:
+      context: .
+      dockerfile: src/NotificationsService/Dockerfile
+    environment: *service-env
+    healthcheck: *service-health
+    depends_on: *infra-deps
+    networks:
+      - backend
+
+  # --- Infraestructura ---
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ticketnow
+      POSTGRES_USER: ticketnow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticketnow}
+    ports:
+      - "${POSTGRES_PORT:-5435}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketnow -d ticketnow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "${REDIS_PORT:-6382}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - backend
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ticketnow
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ticketnow}
+    ports:
+      - "${RABBITMQ_PORT:-5673}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15673}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  # --- Observabilidad (profile: obs) ---
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    profiles: [obs]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: [obs]
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - backend
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    profiles: [obs]
+    ports:
+      - "16686:16686"
+    networks:
+      - backend
+
+  # --- Tests e2e dentro de la red Docker (profile: test) ---
+  # Los tests que usan PG/RabbitMQ corren ACÁ y no en el host: el port-forward
+  # de Docker Desktop (Windows) RSTea conexiones TCP largas (ver Fase 3).
+  # Uso: docker compose --profile test run --rm test-runner
+  test-runner:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    profiles: [test]
+    working_dir: /src
+    volumes:
+      - .:/src
+      - nuget-cache:/root/.nuget/packages
+    environment:
+      DOTNET_NOLOGO: 1
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      TICKETNOW_TEST_POSTGRES: "Host=postgres;Port=5432;Database=ticketnow;Username=ticketnow;Password=${POSTGRES_PASSWORD:-ticketnow}"
+      TICKETNOW_TEST_REDIS: "redis:6379"
+      TICKETNOW_TEST_RABBITMQ_HOST: rabbitmq
+      TICKETNOW_TEST_RABBITMQ_PORT: 5672
+      TICKETNOW_TEST_RABBITMQ_USER: ticketnow
+      TICKETNOW_TEST_RABBITMQ_PASS: ${RABBITMQ_PASSWORD:-ticketnow}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+    command: ["dotnet", "test", "TicketNow.sln", "-c", "Release"]
+
+  # --- Carga k6 dentro de la red Docker (profile: load, Fase 5) ---
+  # Los escenarios crean su propio fixture (venue+evento+onsale) por corrida.
+  # Uso: docker compose --profile load run --rm -e K6_SCRIPT=e3-onsale-storm.js -e VUS=500 k6
+  k6:
+    image: grafana/k6:0.55.0
+    profiles: [load]
+    volumes:
+      - ./load:/scripts:ro
+    environment:
+      TARGET: "http://edge-cache:80"
+      K6_SCRIPT: ${K6_SCRIPT:-e1-browse.js}
+    depends_on:
+      edge-cache:
+        condition: service_healthy
+    networks:
+      - frontend
+    entrypoint: ["sh", "-c", "k6 run /scripts/$$K6_SCRIPT"]
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  postgres-data:
+  redis-data:
+  edge-cache-data:
+  nuget-cache:

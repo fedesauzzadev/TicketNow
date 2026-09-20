@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TicketNow — Mapa semántico del sistema</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f4f6fb; color: #1c2333; }
+  header { background: #101828; color: #fff; padding: 28px 32px; }
+  header h1 { margin: 0 0 6px; font-size: 26px; }
+  header p { margin: 0; color: #b8c2d9; max-width: 900px; }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 20px 60px; }
+  figure { background: #fff; border: 1px solid #dfe4f0; border-radius: 12px; padding: 12px; margin: 0 0 28px; }
+  svg { width: 100%; height: auto; display: block; }
+  h2 { font-size: 20px; margin: 28px 0 10px; }
+  p, li { line-height: 1.55; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .card { background: #fff; border: 1px solid #dfe4f0; border-radius: 10px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card p, .card li { font-size: 13.5px; margin: 4px 0; }
+  code { background: #eef1f7; padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+  footer { color: #667085; font-size: 12.5px; padding: 0 0 30px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TicketNow — Mapa semántico</h1>
+  <p>Plataforma didáctica de venta de entradas que sobrevive al segundo cero del onsale.
+     La idea central: <strong>la tormenta se ordena en la puerta</strong>; adentro, todo es serial, contado y compensable.</p>
+</header>
+<main>
+<figure>
+<svg viewBox="0 0 1200 880" role="img" aria-label="Diagrama semántico de TicketNow">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9 z" fill="#475467"></path>
+    </marker>
+    <marker id="arB" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9 z" fill="#1570ef"></path>
+    </marker>
+    <marker id="arG" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9 z" fill="#067647"></path>
+    </marker>
+    <style>
+      .t { font-size: 13px; fill: #101828; font-weight: 700; }
+      .s { font-size: 11px; fill: #475467; }
+      .chip { font-size: 10px; fill: #fff; font-weight: 700; }
+      .num { font-size: 11px; fill: #fff; font-weight: 800; }
+      .box { fill: #ffffff; stroke: #98a2b3; stroke-width: 1.5; rx: 10; }
+      .zone { fill: #f8fafc; stroke: #d0d5dd; stroke-width: 1; stroke-dasharray: 6 4; rx: 12; }
+    </style>
+  </defs>
+
+  <!-- ============ CLIENTE ============ -->
+  <rect class="zone" x="20" y="20" width="1160" height="120"></rect>
+  <text class="t" x="36" y="42">CLIENTE — SPA React</text>
+  <rect class="box" x="36" y="52" width="200" height="72"></rect>
+  <text class="t" x="48" y="74" font-size="12">Eventos + Admin</text>
+  <text class="s" x="48" y="92">catálogo, countdown</text>
+  <text class="s" x="48" y="106">panel del organizador</text>
+  <rect class="box" x="248" y="52" width="220" height="72"></rect>
+  <text class="t" x="260" y="74" font-size="12">Sala de espera ⏳</text>
+  <text class="s" x="260" y="92">posición en vivo (SignalR)</text>
+  <text class="s" x="260" y="106">PoW anti-bot + heartbeat</text>
+  <rect class="box" x="480" y="52" width="220" height="72"></rect>
+  <text class="t" x="492" y="74" font-size="12">Checkout 🛒</text>
+  <text class="s" x="492" y="92">hold → captcha → pago → orden</text>
+  <text class="s" x="492" y="106">polling hasta estado final</text>
+  <rect class="box" x="712" y="52" width="200" height="72"></rect>
+  <text class="t" x="724" y="74" font-size="12">Login + Ops 📊</text>
+  <text class="s" x="724" y="92">JWT usuario (12 h)</text>
+  <text class="s" x="724" y="106">fila en vivo por onsale</text>
+  <rect x="924" y="52" width="240" height="72" rx="10" fill="#eef4ff" stroke="#1570ef" stroke-width="1.5"></rect>
+  <text class="t" x="936" y="74" font-size="12">Tokens que lleva el fan</text>
+  <text class="s" x="936" y="92">🎫 admisión (turno, 5 min)</text>
+  <text class="s" x="936" y="106">🪪 identidad (usuario, 12 h)</text>
+
+  <!-- ============ BORDE ============ -->
+  <rect class="zone" x="20" y="160" width="1160" height="140"></rect>
+  <text class="t" x="36" y="182">BORDE — lo primero que ve la tormenta</text>
+  <rect class="box" x="36" y="192" width="330" height="92"></rect>
+  <text class="t" x="48" y="214">edge-cache (nginx, emula CDN)</text>
+  <text class="s" x="48" y="232">catálogo GET → HIT 30 s · assets inmutables</text>
+  <text class="s" x="48" y="248">hot path → <tspan font-weight="700">no-store</tspan>, pasa todo</text>
+  <text class="s" x="48" y="264">E2 (F5 frenético) muere acá, no llega adentro</text>
+  <rect class="box" x="380" y="192" width="430" height="92"></rect>
+  <text class="t" x="392" y="214">gateway (YARP) — el portero</text>
+  <text class="s" x="392" y="232">🔑 purchase = turno + identidad (429 / 401)</text>
+  <text class="s" x="392" y="248">🚦 600 req/min por IP · 30/min por cuenta</text>
+  <text class="s" x="392" y="264">propaga sub → X-User-Id aguas abajo</text>
+  <rect class="box" x="824" y="192" width="340" height="92"></rect>
+  <text class="t" x="836" y="214">Filosofía del borde</text>
+  <text class="s" x="836" y="232">decidir UNA vez, arriba y rápido:</text>
+  <text class="s" x="836" y="248">quién entra (fila) · quién es (login)</text>
+  <text class="s" x="836" y="264">qué ritmo vale (rate limit fail-fast)</text>
+
+  <!-- ============ SERVICIOS ============ -->
+  <rect class="zone" x="20" y="320" width="1160" height="220"></rect>
+  <text class="t" x="36" y="342">SERVICIOS — cada uno dueño de sus datos</text>
+
+  <rect class="box" x="36" y="352" width="215" height="172"></rect>
+  <text class="t" x="48" y="374" font-size="12">catalog 📚</text>
+  <text class="s" x="48" y="392">eventos, zonas, onsales</text>
+  <text class="s" x="48" y="408">⏰ opener: llega la hora →</text>
+  <text class="s" x="48" y="424">publica OnsaleOpened</text>
+  <text class="s" x="48" y="440">(marca de agua OpenedAt)</text>
+  <text class="s" x="48" y="456">proyección disponibilidad</text>
+  <text class="s" x="48" y="472">cache-aside en Redis</text>
+  <text class="s" x="48" y="488">+ PoW por onsale (dificultad)</text>
+
+  <rect class="box" x="263" y="352" width="215" height="172"></rect>
+  <text class="t" x="275" y="374" font-size="12">queue 🎪 (sin PG)</text>
+  <text class="s" x="275" y="392">estado 100% Redis (ZSETs)</text>
+  <text class="s" x="275" y="408">loop admisión 1 s, tasa K</text>
+  <text class="s" x="275" y="424">adaptativa (histéresis)</text>
+  <text class="s" x="275" y="440">lease 60 s · reaper 10 s</text>
+  <text class="s" x="275" y="456">SignalR + fallback REST</text>
+  <text class="s" x="275" y="472">free-pass si no hay fila</text>
+  <text class="s" x="275" y="488">challenge PoW un solo uso</text>
+
+  <rect class="box" x="490" y="352" width="215" height="172"></rect>
+  <text class="t" x="502" y="374" font-size="12">inventory 📦</text>
+  <text class="s" x="502" y="392">holds atómicos (Lua)</text>
+  <text class="s" x="502" y="408">ledger append-only (audita)</text>
+  <text class="s" x="502" y="424">claim · confirm · release</text>
+  <text class="s" x="502" y="440">sweeper TTL + reconciliador</text>
+  <text class="s" x="502" y="456">(canario anti-oversell)</text>
+  <text class="s" x="502" y="472">siembra al abrir (idempotente)</text>
+  <text class="s" x="502" y="488">idempotencia 24 h</text>
+
+  <rect class="box" x="717" y="352" width="225" height="172"></rect>
+  <text class="t" x="729" y="374" font-size="12">orders 💳 + saga 🔄</text>
+  <text class="s" x="729" y="392">Holding→Pago→Confirming</text>
+  <text class="s" x="729" y="408">→Completed / Rejected</text>
+  <text class="s" x="729" y="424">pago mock · captcha previo</text>
+  <text class="s" x="729" y="440">tickets + QR anti-replay</text>
+  <text class="s" x="729" y="456">límite por cuenta (API+saga)</text>
+  <text class="s" x="729" y="472">outbox: estado+evento atómicos</text>
+  <text class="s" x="729" y="488">idempotencia en 3 capas</text>
+
+  <rect class="box" x="954" y="352" width="210" height="172"></rect>
+  <text class="t" x="966" y="374" font-size="12">notifications ✉️</text>
+  <text class="s" x="966" y="392">consume eventos</text>
+  <text class="s" x="966" y="408">(confirmado / rechazado /</text>
+  <text class="s" x="966" y="424">ticket emitido)</text>
+  <text class="s" x="966" y="440">emails mock</text>
+  <text class="s" x="966" y="472">observabilidad:</text>
+  <text class="s" x="966" y="488">/metrics · Grafana · traces</text>
+
+  <!-- ============ DATOS ============ -->
+  <rect class="zone" x="20" y="560" width="1160" height="120"></rect>
+  <text class="t" x="36" y="582">DATOS — rápidos arriba, verdaderos abajo</text>
+  <rect class="box" x="36" y="592" width="360" height="72"></rect>
+  <text class="t" x="48" y="614" font-size="12">PostgreSQL 🐘 (la verdad)</text>
+  <text class="s" x="48" y="632">un schema por servicio · ledger · órdenes</text>
+  <text class="s" x="48" y="648">outbox/inbox · saga state · tickets</text>
+  <rect class="box" x="408" y="592" width="360" height="72"></rect>
+  <text class="t" x="420" y="614" font-size="12">Redis ⚡ (la velocidad)</text>
+  <text class="s" x="420" y="632">stock caliente · fila (ZSETs) · leases</text>
+  <text class="s" x="420" y="648">locks idempotencia · challenges PoW</text>
+  <rect class="box" x="780" y="592" width="384" height="72"></rect>
+  <text class="t" x="792" y="614" font-size="12">RabbitMQ 🐇 (el sistema nervioso)</text>
+  <text class="s" x="792" y="632">comandos punto a punto · eventos fanout</text>
+  <text class="s" x="792" y="648">la saga vive de eventos; todo es replay-safe</text>
+
+  <!-- ============ FLECHAS: APERTURA (verde) ============ -->
+  <line x1="143" y1="524" x2="143" y2="556" stroke="#067647" stroke-width="2" marker-end="url(#arG)"></line>
+  <line x1="370" y1="524" x2="370" y2="556" stroke="#067647" stroke-width="2" marker-end="url(#arG)"></line>
+  <line x1="597" y1="524" x2="520" y2="600" stroke="#067647" stroke-width="2" marker-end="url(#arG)"></line>
+  <line x1="830" y1="524" x2="900" y2="600" stroke="#067647" stroke-width="2" marker-end="url(#arG)"></line>
+  <circle cx="60" cy="700" r="10" fill="#067647"></circle><text class="num" x="56" y="704">A</text>
+  <text class="s" x="76" y="704">APERTURA: opener → <tspan font-weight="700">OnsaleOpened</tspan> → siembra stock + habilita fila (exactamente una vez)</text>
+
+  <!-- ============ FLECHAS: COMPRA (azul) ============ -->
+  <line x1="300" y1="124" x2="300" y2="156" stroke="#1570ef" stroke-width="2" marker-end="url(#arB)"></line>
+  <line x1="200" y1="284" x2="480" y2="284" stroke="#1570ef" stroke-width="2" marker-end="url(#arB)"></line>
+  <line x1="595" y1="284" x2="595" y2="316" stroke="#1570ef" stroke-width="2" marker-end="url(#arB)"></line>
+  <line x1="370" y1="380" x2="830" y2="240" stroke="#1570ef" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arB)"></line>
+  <circle cx="60" cy="728" r="10" fill="#1570ef"></circle><text class="num" x="56" y="732">B</text>
+  <text class="s" x="76" y="732">COMPRA: 1 enter(+PoW) → 2 turno+token → 3 login → 4 hold → 5 captcha+pago → 6 orden → 7 saga confirma → 8 ticket QR</text>
+
+  <!-- ============ FLECHAS: PROTECCIÓN (gris) ============ -->
+  <line x1="994" y1="440" x2="994" y2="600" stroke="#475467" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ar)"></line>
+  <circle cx="60" cy="756" r="10" fill="#475467"></circle><text class="num" x="56" y="760">C</text>
+  <text class="s" x="76" y="760">PROTECCIÓN: cupo por cuenta · compensaciones de saga · reconciliador vigila que Redis == ledger (divergencia = 0, siempre)</text>
+
+  <!-- Invariantes -->
+  <rect x="20" y="776" width="1160" height="88" rx="10" fill="#101828"></rect>
+  <text x="36" y="800" fill="#fff" font-size="13" font-weight="700">Invariantes sagrados (si uno cae, suena la alarma, no se vende de más ni de menos):</text>
+  <text x="36" y="822" fill="#b8c2d9" font-size="12">INV-1 cero oversell (Lua + ledger) · INV-2 holds siempre expiran o se confirman · INV-3 ticket ⟺ pago autorizado · INV-4 la fila es FIFO y justa · INV-5 reintentar nunca duplica</text>
+  <text x="36" y="844" fill="#b8c2d9" font-size="12">Lección dura del proyecto: los exchanges fanout son compartidos — los tests corren con la app detenida (solo infra), como en CI.</text>
+</svg>
+</figure>
+
+<h2>La explicación en cinco ideas</h2>
+<div class="grid">
+  <div class="card"><h3>1. La tormenta se ordena en la puerta</h3>
+    <p>El segundo cero del onsale no se atiende: <strong>se encola</strong>. La fila vive en Redis (ZSETs, O(log n)), admite K personas/segundo con tasa adaptativa, y entrega un <em>admission token</em>. Sin turno no hay compra: el gateway responde 429.</p></div>
+  <div class="card"><h3>2. El borde decide una vez</h3>
+    <p>nginx absorbe lecturas (E2 muere en caché), el gateway exige <strong>turno + identidad</strong> y propaga quién sos aguas abajo. Rate limit fail-fast: 429 con Retry-After, jamás clientes colgados.</p></div>
+  <div class="card"><h3>3. Adentro todo es contado o compensado</h3>
+    <p>El stock se reserva con Lua atómico y se audita en un ledger append-only. La compra es una <strong>saga</strong>: valida → cobra → confirma → emite; si algo falla, devuelve el stock y el dinero (el hold expira solo por TTL como red final).</p></div>
+  <div class="card"><h3>4. Nada se pierde, nada se duplica</h3>
+    <p>Outbox transaccional (estado + evento atómicos), idempotencia en 3 capas (clave + lock + UNIQUE), consumidores replay-safe y un reconciliador que repara Redis desde el ledger si divergen.</p></div>
+  <div class="card"><h3>5. La apertura es un evento</h3>
+    <p>Cuando llega la hora, el catálogo publica <code>OnsaleOpened</code> <strong>exactamente una vez</strong> (marca de agua): el inventario siembra y la fila se habilita solos. Sin pasos manuales el día del show.</p></div>
+  <div class="card"><h3>6. Capas anti-bot honestas</h3>
+    <p>PoW para entrar, captcha antes de pagar, cupo y ritmo por cuenta, JWT de usuario. Cada capa dice qué frena y qué no: paran scripts tontos, no botnets profesionales (documentado, no marketineado).</p></div>
+</div>
+
+<h2>Las 6 fases en una línea</h2>
+<div class="card"><p>
+<strong>0</strong> Fundación (repo, compose, CI) ·
+<strong>1</strong> Catálogo con caché ·
+<strong>2</strong> Inventario atómico + ledger ·
+<strong>3</strong> Checkout por saga + tickets QR ·
+<strong>4</strong> Fila virtual + admisión en el borde ·
+<strong>5</strong> Apertura por evento + carga k6 ·
+<strong>6</strong> Identidad, límites y anti-bot. — 40/40 tests, k6 E1–E4 verdes, e2e en Docker.
+</p></div>
+
+<footer>TicketNow · mapa generado como documento vivo del repo (<code>docs/mapa-del-sistema.html</code>) · abrir en el navegador, sin servidor.</footer>
+</main>
+</body>
+</html>

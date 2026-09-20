@@ -1,0 +1,71 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ticketnow
+          POSTGRES_USER: ticketnow
+          POSTGRES_PASSWORD: ticketnow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ticketnow -d ticketnow"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: ticketnow
+          RABBITMQ_DEFAULT_PASS: ticketnow
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test (unit + integración + e2e contra servicios reales)
+        env:
+          TICKETNOW_TEST_POSTGRES: "Host=localhost;Port=5432;Database=ticketnow;Username=ticketnow;Password=ticketnow"
+          TICKETNOW_TEST_REDIS: "localhost:6379"
+          TICKETNOW_TEST_RABBITMQ_HOST: localhost
+          TICKETNOW_TEST_RABBITMQ_PORT: 5672
+          TICKETNOW_TEST_RABBITMQ_USER: ticketnow
+          TICKETNOW_TEST_RABBITMQ_PASS: ticketnow
+        run: dotnet test --no-build -c Release --logger "github"
+
+  compose-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose -f docker-compose.yml config --quiet

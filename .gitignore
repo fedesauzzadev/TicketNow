@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+TestResults/
+*.log
+logs/
+
+# Secretos locales (usar .env.example como plantilla)
+.env
+
+# Node / SPA (Fase 1)
+node_modules/
+dist/
+
+# Docker
+*.pid
