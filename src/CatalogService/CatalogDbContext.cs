@@ -63,7 +63,7 @@ public class CatalogDbContext(DbContextOptions options) : DbContext(options)
 
 /// <summary>
 /// Seed didáctico con fechas fijas coherentes con "hoy" (2026-09):
-/// un onsale ABIERTO (Noche de Neón), uno FUTURO para el countdown (Ritmos del Sur)
+/// un onsale ABIERTO (Metallica), uno FUTURO para el countdown (Iron Maiden)
 /// y un draft sin onsale. En Fase 6 esto se administra solo vía admin API.
 /// </summary>
 public static class Seed
@@ -87,13 +87,13 @@ public static class Seed
     [
         new()
         {
-            Id = EventNeon, Title = "Noche de Neón", Artist = "Las Luciérnagas",
+            Id = EventNeon, Title = "Metallica", Artist = "Metallica",
             StartsAt = new DateTimeOffset(2027, 3, 13, 21, 0, 0, TimeSpan.Zero),
             Status = EventStatus.Announced, VenueId = VenueEstadio,
         },
         new()
         {
-            Id = EventRitmos, Title = "Ritmos del Sur", Artist = "Fuego Lento",
+            Id = EventRitmos, Title = "Iron Maiden", Artist = "Iron Maiden",
             StartsAt = new DateTimeOffset(2027, 1, 22, 20, 30, 0, TimeSpan.Zero),
             Status = EventStatus.Announced, VenueId = VenueArena,
         },
@@ -115,7 +115,7 @@ public static class Seed
         new()
         {
             EventId = EventRitmos, OpensAt = new DateTimeOffset(2026, 12, 1, 12, 0, 0, TimeSpan.Zero),
-            MaxConcurrentInside = 1500, AdmissionRatePerSec = 40, MaxPerAccount = 4, RequiresQueue = true,
+            MaxConcurrentInside = 1500, AdmissionRatePerSec = 40, MaxPerAccount = 4, RequiresQueue = false,
         },
     ];
 

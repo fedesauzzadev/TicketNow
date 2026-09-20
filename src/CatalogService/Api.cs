@@ -54,12 +54,27 @@ public static class Api
                     .Include(e => e.Zones)
                     .ToListAsync(token);
 
-                var items = events.Select(e => new EventListItemDto(
-                    e.Id, e.Title, e.Artist, e.StartsAt,
-                    e.Venue!.Name, e.Venue.City, e.EffectiveStatus(now),
-                    e.Zones.Count,
-                    e.Zones.Count == 0 ? null : e.Zones.Min(z => z.Price),
-                    e.Onsale?.OpensAt)).ToList();
+                var items = new List<EventListItemDto>();
+                foreach (var e in events)
+                {
+                    // Peor disponibilidad de sus zonas (para el badge de la card).
+                    var free = await cache.GetFreeAsync(e.Id, e.Zones.Select(z => z.Id), token);
+                    var worst = "high";
+                    foreach (var z in e.Zones)
+                    {
+                        var level = AvailabilityLevel(free.GetValueOrDefault(z.Id, -1), z.Capacity);
+                        if (Rank(level) < Rank(worst))
+                        {
+                            worst = level;
+                        }
+                    }
+                    items.Add(new EventListItemDto(
+                        e.Id, e.Title, e.Artist, e.StartsAt,
+                        e.Venue!.Name, e.Venue.City, e.EffectiveStatus(now),
+                        e.Zones.Count,
+                        e.Zones.Count == 0 ? null : e.Zones.Min(z => z.Price),
+                        e.Onsale?.OpensAt, worst, e.Onsale?.RequiresQueue ?? false));
+                }
 
                 return new PagedResult<EventListItemDto>(items, page, pageSize, total);
             }, ct);
@@ -250,6 +265,14 @@ public static class Api
         0 => "soldout",
         var f when f > capacity * 0.3 => "high",
         _ => "medium",
+    };
+
+    private static int Rank(string level) => level switch
+    {
+        "soldout" => 0,
+        "low" => 1,
+        "medium" => 2,
+        _ => 3,
     };
 
     private static EventDetailDto MapDetail(Event @event, DateTimeOffset now)

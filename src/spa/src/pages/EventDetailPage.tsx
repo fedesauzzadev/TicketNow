@@ -7,6 +7,20 @@ import { useQueueStore } from '../store/queueStore';
 import { useAuthStore } from '../store/authStore';
 import { setUserTokenReader } from '../api';
 
+function availabilityLabel(a: string): string {
+  switch (a) {
+    case 'soldout':
+      return 'Agotado';
+    case 'low':
+    case 'medium':
+      return 'Pocas entradas';
+    case 'high':
+      return 'Disponible';
+    default:
+      return a;
+  }
+}
+
 setUserTokenReader(() => useAuthStore.getState().userToken);
 
 type BuyState =
@@ -19,6 +33,8 @@ type BuyState =
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { admissionToken, clear } = useQueueStore();
+  const queueOnsaleId = useQueueStore((s) => s.onsaleId);
+  const setQueue = useQueueStore((s) => s.setQueue);
   const { userId } = useAuthStore();
   const [zoneId, setZoneId] = useState('');
   const [qty, setQty] = useState(2);
@@ -37,6 +53,11 @@ export default function EventDetailPage() {
 
   const open = data.status === 'onsale';
   const needsQueue = open && !!data.onsale?.requiresQueue;
+  // El turno es POR EVENTO (ADR-012): solo vale si es de este evento.
+  const myTurn = !!admissionToken && queueOnsaleId === data.id;
+  // Agotado = todas las zonas en soldout: no se ofrece comprar (el hold
+  // daría 409 igual, pero la UX no debe ni intentarlo).
+  const soldOut = open && data.zones.length > 0 && data.zones.every((z) => z.availability === 'soldout');
 
   async function buyTickets(): Promise<void> {
     if (!id) return;
@@ -50,6 +71,22 @@ export default function EventDetailPage() {
       return;
     }
     try {
+      // Venta directa (sin fila): free-pass silencioso para obtener el token
+      // de admisión que igual exige el gateway (ADR-010).
+      if (!needsQueue && !(admissionToken && queueOnsaleId === id)) {
+        setBuy({ step: 'working', message: 'Obteniendo pase…' });
+        const entered: { sessionId: string; admitted: boolean; admissionToken?: string } =
+          await api.queueEnter(id);
+        if (!entered.admitted || !entered.admissionToken) {
+          throw new Error('no se pudo obtener el pase de compra');
+        }
+        setQueue({
+          sessionId: entered.sessionId,
+          onsaleId: id,
+          admissionToken: entered.admissionToken,
+          admitted: true,
+        });
+      }
       setBuy({ step: 'working', message: 'Reservando…' });
       const hold = await api.createHold({ eventId: id, zoneId: zone.id, qty });
       setBuy({ step: 'working', message: 'Captcha…' });
@@ -100,6 +137,12 @@ export default function EventDetailPage() {
       setBuy({ step: 'error', message: 'Tu turno expiró: volvé a entrar a la fila.' });
     } else if (message.includes('401')) {
       setBuy({ step: 'error', message: 'Entrá con tu cuenta para comprar.' });
+    } else if (message.includes('admission_for_other_event')) {
+      clear();
+      setBuy({ step: 'error', message: 'Ese turno es de otro evento: hacé la fila de este evento.' });
+    } else if (message.includes('admission_revoked')) {
+      clear();
+      setBuy({ step: 'error', message: 'Saliste de la fila: volvé a entrar para comprar.' });
     } else if (message.includes('409') && message.includes('límite')) {
       setBuy({ step: 'error', message: 'Llegaste al límite de entradas para este evento.' });
     } else {
@@ -119,14 +162,14 @@ export default function EventDetailPage() {
           La venta abre en <Countdown targetIso={data.onsale.opensAt} />
         </p>
       )}
-      {open && needsQueue && !admissionToken && (
+      {open && needsQueue && !myTurn && (
         <p>
           <Link to={`/queue/${data.id}`} className="button">
             Entrar a la fila virtual
           </Link>
         </p>
       )}
-      {open && needsQueue && admissionToken && (
+      {open && needsQueue && myTurn && (
         <p className="muted">Turno válido: podés comprar.</p>
       )}
       <h3>Zonas</h3>
@@ -145,12 +188,17 @@ export default function EventDetailPage() {
               <td>{z.name}</td>
               <td>{z.capacity}</td>
               <td>${z.price}</td>
-              <td>{z.availability}</td>
+              <td>{availabilityLabel(z.availability)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      {open && (!needsQueue || admissionToken) && (
+      {open && soldOut && (
+        <p>
+          <strong>Agotado:</strong> no quedan entradas para este evento.
+        </p>
+      )}
+      {open && !soldOut && (!needsQueue || myTurn) && (
         <section className="buy">
           <h3>Comprar</h3>
           <label>
@@ -158,8 +206,10 @@ export default function EventDetailPage() {
             <select value={zoneId} onChange={(e) => setZoneId(e.target.value)}>
               <option value="">— elegir —</option>
               {data.zones.map((z) => (
-                <option key={z.id} value={z.id}>
+                <option key={z.id} value={z.id} disabled={z.availability === 'soldout'}>
                   {z.name} — ${z.price}
+                  {z.availability === 'soldout' ? ' (agotada)' : ''}
+                  {(z.availability === 'low' || z.availability === 'medium') ? ' (¡pocas!)' : ''}
                 </option>
               ))}
             </select>

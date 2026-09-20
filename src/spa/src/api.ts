@@ -11,6 +11,8 @@ export interface EventListItem {
   zonesCount: number;
   priceFrom: number | null;
   onsaleOpensAt: string | null;
+  availability: string;
+  requiresQueue: boolean;
 }
 
 export interface Zone {
@@ -163,6 +165,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   order: (orderId: string) => request<OrderStatus>(`/api/orders/${orderId}`),
+  queueEnter: (onsaleId: string) =>
+    request<{ sessionId: string; admitted: boolean; admissionToken?: string }>(`/api/queue/enter`, {
+      method: 'POST',
+      body: JSON.stringify({ onsaleId }),
+    }),
   login: (email: string, name?: string) =>
     request<{ userId: string; displayName: string; token: string; expiresAt: string }>(
       `/api/auth/token`,

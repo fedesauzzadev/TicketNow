@@ -2,22 +2,25 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using TicketNow.UnitTests;
+using TicketNow.CatalogService;
 
 #nullable disable
 
-namespace TicketNow.UnitTests.TestMigrations.Catalog
+namespace TicketNow.CatalogService.Persistence.Migrations
 {
-    [DbContext(typeof(TestCatalogDbContext))]
-    partial class TestCatalogDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(CatalogDbContext))]
+    [Migration("20260920031145_SeedBands")]
+    partial class SeedBands
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("public")
+                .HasDefaultSchema("catalog")
                 .HasAnnotation("ProductVersion", "8.0.31")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -69,7 +72,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
 
                     b.HasIndex("Delivered");
 
-                    b.ToTable("InboxState", "public");
+                    b.ToTable("InboxState", "catalog");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>
@@ -160,7 +163,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
                     b.HasIndex("InboxMessageId", "InboxConsumerId", "SequenceNumber")
                         .IsUnique();
 
-                    b.ToTable("OutboxMessage", "public");
+                    b.ToTable("OutboxMessage", "catalog");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxState", b =>
@@ -190,7 +193,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
 
                     b.HasIndex("Created");
 
-                    b.ToTable("OutboxState", "public");
+                    b.ToTable("OutboxState", "catalog");
                 });
 
             modelBuilder.Entity("TicketNow.CatalogService.Event", b =>
@@ -231,7 +234,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
 
                     b.HasIndex("VenueId");
 
-                    b.ToTable("events", "public");
+                    b.ToTable("events", "catalog");
 
                     b.HasData(
                         new
@@ -294,7 +297,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
 
                     b.HasKey("EventId");
 
-                    b.ToTable("onsales", "public");
+                    b.ToTable("onsales", "catalog");
 
                     b.HasData(
                         new
@@ -315,7 +318,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
                             MaxPerAccount = 4,
                             OpensAt = new DateTimeOffset(new DateTime(2026, 12, 1, 12, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             PowDifficulty = 0,
-                            RequiresQueue = false
+                            RequiresQueue = true
                         });
                 });
 
@@ -340,7 +343,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
 
                     b.HasKey("Id");
 
-                    b.ToTable("venues", "public");
+                    b.ToTable("venues", "catalog");
 
                     b.HasData(
                         new
@@ -393,7 +396,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
 
                     b.HasIndex("EventId");
 
-                    b.ToTable("zones", "public");
+                    b.ToTable("zones", "catalog");
 
                     b.HasData(
                         new

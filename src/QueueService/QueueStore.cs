@@ -1,4 +1,5 @@
 using StackExchange.Redis;
+using TicketNow.ServiceDefaults;
 
 namespace TicketNow.QueueService;
 
@@ -44,6 +45,11 @@ public sealed class QueueStore
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var sessionKey = Session(sessionId);
         var exists = await _redis.HashGetAsync(sessionKey, "onsaleId");
+
+        // Entrar (o re-entrar) es turno nuevo: limpia una revocación previa
+        // (ADR-012). Sin esto, salir y volver dejaría los tokens viejos muertos
+        // para siempre dentro de su TTL.
+        await _redis.KeyDeleteAsync(AdmissionChecker.RevokedKey(sessionId));
 
         if (exists.HasValue && (string?)exists == onsaleId)
         {
@@ -163,6 +169,10 @@ public sealed class QueueStore
             await _redis.StringDecrementAsync(Admitted(onsaleId));
             await _redis.HashSetAsync(Session(sessionId), "admitted", 0);
         }
+        // Salir = perder el turno (ADR-012): los tokens ya emitidos para esta
+        // sesión mueren acá, aunque su firma siga válida hasta expirar.
+        await _redis.StringSetAsync(
+            AdmissionChecker.RevokedKey(sessionId), "1", AdmissionChecker.RevokedTtl);
     }
 
     public async Task<int> GetRateAsync(string onsaleId, int fallback)

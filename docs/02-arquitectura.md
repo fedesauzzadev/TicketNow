@@ -257,6 +257,16 @@ Contratos compartidos en proyecto `TicketNow.Contracts` (sin dependencias). Exch
 - **Consecuencias:** (+) Servicios desacoplados del IdP y del catálogo; límites reales sin joins entre BCs. (−) El valor del tope lo aporta el cliente (un cliente malicioso podría declarar un tope mayor — el conteo es server-side pero el techo es declarativo; en producción el tope debe viajar firmado o leerse del catálogo server-side). (−) Un bucket por usuario en memoria del gateway (didáctico; en producción, Redis).
 - **Alternativas:** orders consulta al catálogo por HTTP en el camino feliz (acopla latencias y disponibilidad); userId solo como header sin firmar (el estado previo: spoofeable, sin límites posibles).
 
+### ADR-012: Turno atado al evento + revocación al salir
+
+- **Estado:** Aceptada · **Contexto:** El admission token decía PARA QUÉ evento era (claims `onsale`/`event`), pero nadie lo exigía: el gateway solo valida firma y vigencia, así que un turno del evento A compraba en el B. Y salir de la fila (`DELETE /me`) borraba la sesión pero el JWT seguía válido hasta expirar: salir no hacía perder el turno.
+- **Decisión:**
+  - El servicio que VENDE exige el bindeo: `POST /inventory/holds` y `POST /orders` verifican firma + vigencia, que `token.event == evento comprado` (comparación por Guid, tolera formatos `"D"`/`"N"`) y que la sesión no esté revocada (`AdmissionChecker` compartido en ServiceDefaults). Sin token: fail-open a propósito — sin credencial no hay nada que bindear; el gateway garantiza presencia en producción y directo al servicio es tests/dev.
+  - `LeaveAsync` escribe `revoked-session:{session}` con TTL 5 min (= TTL máximo de un token); `EnterAsync` lo limpia (volver a entrar es turno nuevo).
+  - Respuestas machine-readable: 403 `admission_for_other_event` ("ese turno es de otro evento"), 403 `admission_revoked` ("saliste: volvé a entrar"), 401 `admission_invalid`. La SPA limpia el turno stale al cambiar de evento y traduce cada código.
+- **Consecuencias:** (+) El turno es intransferible entre eventos y muere al salir; las colas por evento (que ya eran claves separadas) ahora sí se comportan como separadas. (−) Un roundtrip extra a Redis por compra (GETDEL/EXISTS, ~µs; mismo Redis del hot path). (−) Ventana residual: token usado ENTRE salir y la escritura del marcador (ms, y requiere tener el token en mano tras salir a propósito).
+- **Alternativas:** bindear en el gateway (no conoce el evento sin parsear bodies — no); lista de JTIs emitidos con TTL (más estado para el mismo efecto; la revocación por sesión cubre todos los tokens re-emitidos de una vez).
+
 ## 8. Deuda técnica consciente (didáctica)
 
 | Deuda | Por qué se acepta | Camino de producción |

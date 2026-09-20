@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { setAdmissionTokenReader } from '../api';
 
 // Estado de la fila virtual + token de admisión (Fase 4).
+// El turno es POR EVENTO (ADR-012): cambiar de onsale invalida el anterior.
 interface QueueState {
   sessionId: string | null;
   onsaleId: string | null;
@@ -11,9 +12,10 @@ interface QueueState {
   admitted: boolean;
   setQueue: (patch: Partial<QueueState>) => void;
   clear: () => void;
+  clearForOnsale: (onsaleId: string) => void;
 }
 
-const initial: Omit<QueueState, 'setQueue' | 'clear'> = {
+const initial: Omit<QueueState, 'setQueue' | 'clear' | 'clearForOnsale'> = {
   sessionId: localStorage.getItem('tn-session') ?? null,
   onsaleId: localStorage.getItem('tn-onsale') ?? null,
   admissionToken: localStorage.getItem('tn-admission') ?? null,
@@ -39,6 +41,15 @@ export const useQueueStore = create<QueueState>((set) => ({
     localStorage.removeItem('tn-onsale');
     localStorage.removeItem('tn-admission');
     set({ ...initial, sessionId: null, onsaleId: null, admissionToken: null });
+  },
+  // Al entrar a OTRO evento, el turno anterior no vale (ADR-012): se descarta
+  // el estado local para no comprar con un token ajeno (el servidor igual lo
+  // rechazaría con 403, pero la UX no debe ni intentarlo).
+  clearForOnsale: (onsaleId: string) => {
+    const current = useQueueStore.getState();
+    if (current.onsaleId !== null && current.onsaleId !== onsaleId) {
+      current.clear();
+    }
   },
 }));
 

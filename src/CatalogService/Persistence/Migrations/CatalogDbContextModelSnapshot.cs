@@ -237,19 +237,19 @@ namespace TicketNow.CatalogService.Persistence.Migrations
                         new
                         {
                             Id = new Guid("20000000-0000-0000-0000-000000000001"),
-                            Artist = "Las Luciérnagas",
+                            Artist = "Metallica",
                             StartsAt = new DateTimeOffset(new DateTime(2027, 3, 13, 21, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Status = "Announced",
-                            Title = "Noche de Neón",
+                            Title = "Metallica",
                             VenueId = new Guid("10000000-0000-0000-0000-000000000001")
                         },
                         new
                         {
                             Id = new Guid("20000000-0000-0000-0000-000000000002"),
-                            Artist = "Fuego Lento",
+                            Artist = "Iron Maiden",
                             StartsAt = new DateTimeOffset(new DateTime(2027, 1, 22, 20, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Status = "Announced",
-                            Title = "Ritmos del Sur",
+                            Title = "Iron Maiden",
                             VenueId = new Guid("10000000-0000-0000-0000-000000000002")
                         },
                         new
@@ -315,7 +315,7 @@ namespace TicketNow.CatalogService.Persistence.Migrations
                             MaxPerAccount = 4,
                             OpensAt = new DateTimeOffset(new DateTime(2026, 12, 1, 12, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             PowDifficulty = 0,
-                            RequiresQueue = true
+                            RequiresQueue = false
                         });
                 });
 

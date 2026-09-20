@@ -203,3 +203,6 @@ a.button { display: inline-block; padding: 0.55rem 1rem; border-radius: 8px; bor
 .buy label { display: grid; gap: 0.3rem; }
 .buy input, .buy select { padding: 0.55rem 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
 label input { display: block; margin-top: 0.3rem; padding: 0.55rem 0.8rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); width: 100%; max-width: 420px; box-sizing: border-box; }
+.badge-soldout { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+.badge-low { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.badge-queue { background: rgba(21, 112, 239, 0.15); color: #53b1fd; }

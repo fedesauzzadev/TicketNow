@@ -52,8 +52,25 @@ public sealed class AdmissionTokenService
 
     public bool TryVerify(string token, out string? sessionId, out string? onsaleId)
     {
+        var ok = TryReadClaims(token, out sessionId, out onsaleId, out _);
+        return ok;
+    }
+
+    /// <summary>
+    /// Variante que además devuelve el evento (ADR-012): el turno está
+    /// atado a UN evento y solo el servicio que conoce la compra puede exigirlo.
+    /// </summary>
+    public bool TryVerifyEvent(string token, out string? sessionId, out string? eventId)
+    {
+        var ok = TryReadClaims(token, out sessionId, out _, out eventId);
+        return ok && sessionId is not null;
+    }
+
+    private bool TryReadClaims(string token, out string? sessionId, out string? onsaleId, out string? eventId)
+    {
         sessionId = null;
         onsaleId = null;
+        eventId = null;
         var parts = token.Split('.');
         if (parts.Length != 3)
         {
@@ -77,6 +94,7 @@ public sealed class AdmissionTokenService
             }
             sessionId = root.GetProperty("sub").GetString();
             onsaleId = root.GetProperty("onsale").GetString();
+            eventId = root.TryGetProperty("event", out var e) ? e.GetString() : onsaleId;
             return sessionId is not null && onsaleId is not null;
         }
         catch (Exception ex)

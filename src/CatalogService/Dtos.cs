@@ -12,7 +12,9 @@ public sealed record EventListItemDto(
     string Status,
     int ZonesCount,
     decimal? PriceFrom,
-    DateTimeOffset? OnsaleOpensAt);
+    DateTimeOffset? OnsaleOpensAt,
+    string Availability,
+    bool RequiresQueue);
 
 public sealed record ZoneDto(Guid Id, string Name, int Capacity, decimal Price, string Availability);
 

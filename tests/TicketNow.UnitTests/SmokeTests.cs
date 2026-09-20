@@ -89,10 +89,10 @@ public class CatalogApiTests
         var page = await client.GetFromJsonAsync<PagedResult<EventListItem>>("/api/events");
 
         Assert.NotNull(page);
-        Assert.Equal(2, page.Total); // Noche de Neón + Ritmos del Sur (Íntimos es draft)
+        Assert.Equal(2, page.Total); // Metallica + Iron Maiden (Íntimos es draft)
         Assert.All(page.Items, item => Assert.NotEqual("draft", item.Status));
-        Assert.Contains(page.Items, i => i.Title == "Noche de Neón" && i.Status == "onsale"); // onsale abierto desde 2026-09-01
-        Assert.Contains(page.Items, i => i.Title == "Ritmos del Sur" && i.Status == "announced"); // countdown hasta 2026-12-01
+        Assert.Contains(page.Items, i => i.Title == "Metallica" && i.Status == "onsale"); // onsale abierto desde 2026-09-01
+        Assert.Contains(page.Items, i => i.Title == "Iron Maiden" && i.Status == "announced"); // countdown hasta 2026-12-01
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class CatalogApiTests
         var detail = await client.GetFromJsonAsync<EventDetail>($"/api/events/{neon}");
 
         Assert.NotNull(detail);
-        Assert.Equal("Las Luciérnagas", detail.Artist);
+        Assert.Equal("Metallica", detail.Artist);
         Assert.Equal(4, detail.Zones.Count);
         Assert.NotNull(detail.Onsale);
         Assert.True(detail.Onsale.RequiresQueue);

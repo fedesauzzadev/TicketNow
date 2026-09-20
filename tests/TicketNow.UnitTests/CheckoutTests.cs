@@ -8,9 +8,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using StackExchange.Redis;
 using TicketNow.CatalogService;
 using TicketNow.InventoryService;
 using TicketNow.OrdersService;
+using TicketNow.ServiceDefaults;
 
 namespace TicketNow.UnitTests;
 
@@ -641,4 +643,115 @@ public class CheckoutTests : IClassFixture<CheckoutEnvironment>
     private sealed record VenueCreatedDto(Guid Id);
     private sealed record EventStatusDto(Guid Id, string Status, IReadOnlyList<ZoneRefDto> Zones);
     private sealed record ZoneRefDto(Guid Id, string Name);
+
+    // ADR-012: el turno está atado a UN evento. Token del evento A no compra B.
+    private static string IssueAdmission(WebApplicationFactory<OrdersService.Marker> factory, string session, Guid onsaleEvent)
+    {
+        using var scope = factory.Services.CreateScope();
+        var tokens = scope.ServiceProvider.GetRequiredService<AdmissionTokenService>();
+        return tokens.Issue(session, onsaleEvent.ToString(), onsaleEvent.ToString(), TimeSpan.FromMinutes(5));
+    }
+
+    private static void WithAdmission(HttpRequestMessage request, string token) =>
+        request.Headers.Add("X-Admission-Token", token);
+
+    [Fact]
+    public async Task Turno_de_otro_evento_no_compra_ni_reserva()
+    {
+        var orders = _env.Orders;
+        var inventory = _env.Inventory;
+        const string user = "e2e-otro-evento";
+        var eventA = Guid.NewGuid();
+        var eventB = Guid.NewGuid();
+        var zoneB = Guid.NewGuid();
+        await SeedAsync(inventory, eventB, zoneB, capacity: 4);
+
+        var tokenA = IssueAdmission(_env.OrdersFactory, $"s-{Guid.NewGuid():N}", eventA);
+
+        // Hold en B con turno de A → 403.
+        using var holdReq = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/holds");
+        holdReq.Headers.Add("X-User-Id", user);
+        WithAdmission(holdReq, tokenA);
+        holdReq.Content = JsonContent.Create(new { eventId = eventB, zoneId = zoneB, qty = 1 });
+        var holdRes = await inventory.SendAsync(holdReq);
+        Assert.Equal(HttpStatusCode.Forbidden, holdRes.StatusCode);
+        Assert.Contains("admission_for_other_event", await holdRes.Content.ReadAsStringAsync());
+
+        // Orden en B con turno de A → 403 (antes de tocar saga/stock).
+        var holdB = await HoldAsync(inventory, eventB, zoneB, qty: 1, user);
+        using var orderReq = new HttpRequestMessage(HttpMethod.Post, "/api/orders");
+        orderReq.Headers.Add("X-User-Id", user);
+        orderReq.Headers.Add("Idempotency-Key", $"e2e-{Guid.NewGuid():N}");
+        WithAdmission(orderReq, tokenA);
+        orderReq.Content = JsonContent.Create(new
+        {
+            holdId = holdB,
+            eventId = eventB,
+            maxPerAccount = 4,
+            items = new[] { new { zoneId = zoneB, qty = 1, unitPrice = 85m } },
+            paymentToken = await TokenizeAsync(orders),
+        });
+        var orderRes = await orders.SendAsync(orderReq);
+        Assert.Equal(HttpStatusCode.Forbidden, orderRes.StatusCode);
+        Assert.Contains("admission_for_other_event", await orderRes.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Turno_del_mismo_evento_si_compra()
+    {
+        var orders = _env.Orders;
+        var inventory = _env.Inventory;
+        const string user = "e2e-mismo-evento";
+        var eventB = Guid.NewGuid();
+        var zoneB = Guid.NewGuid();
+        await SeedAsync(inventory, eventB, zoneB, capacity: 4);
+
+        var tokenB = IssueAdmission(_env.OrdersFactory, $"s-{Guid.NewGuid():N}", eventB);
+
+        using var holdReq = new HttpRequestMessage(HttpMethod.Post, "/api/inventory/holds");
+        holdReq.Headers.Add("X-User-Id", user);
+        WithAdmission(holdReq, tokenB);
+        holdReq.Content = JsonContent.Create(new { eventId = eventB, zoneId = zoneB, qty = 1 });
+        var holdRes = await inventory.SendAsync(holdReq);
+        Assert.Equal(HttpStatusCode.Created, holdRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task Salir_revoca_el_turno_aunque_el_token_siga_vigente()
+    {
+        var orders = _env.Orders;
+        var inventory = _env.Inventory;
+        const string user = "e2e-revocado";
+        var eventB = Guid.NewGuid();
+        var zoneB = Guid.NewGuid();
+        await SeedAsync(inventory, eventB, zoneB, capacity: 4);
+
+        var session = $"s-{Guid.NewGuid():N}";
+        var tokenB = IssueAdmission(_env.OrdersFactory, session, eventB);
+
+        // Simula LeaveAsync del queue-service: marca la sesión como salida.
+        using (var scope = _env.OrdersFactory.Services.CreateScope())
+        {
+            var mux = scope.ServiceProvider.GetRequiredService<ConnectionMultiplexer>();
+            await mux.GetDatabase().StringSetAsync(
+                AdmissionChecker.RevokedKey(session), "1", AdmissionChecker.RevokedTtl);
+        }
+
+        using var orderReq = new HttpRequestMessage(HttpMethod.Post, "/api/orders");
+        orderReq.Headers.Add("X-User-Id", user);
+        orderReq.Headers.Add("Idempotency-Key", $"e2e-{Guid.NewGuid():N}");
+        WithAdmission(orderReq, tokenB);
+        var holdB = await HoldAsync(inventory, eventB, zoneB, qty: 1, user);
+        orderReq.Content = JsonContent.Create(new
+        {
+            holdId = holdB,
+            eventId = eventB,
+            maxPerAccount = 4,
+            items = new[] { new { zoneId = zoneB, qty = 1, unitPrice = 85m } },
+            paymentToken = await TokenizeAsync(orders),
+        });
+        var orderRes = await orders.SendAsync(orderReq);
+        Assert.Equal(HttpStatusCode.Forbidden, orderRes.StatusCode);
+        Assert.Contains("admission_revoked", await orderRes.Content.ReadAsStringAsync());
+    }
 }

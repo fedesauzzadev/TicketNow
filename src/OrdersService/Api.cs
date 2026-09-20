@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using TicketNow.Contracts.Commands;
 using TicketNow.Contracts.Events;
+using TicketNow.ServiceDefaults;
 
 namespace TicketNow.OrdersService;
 
@@ -25,8 +26,10 @@ public static class Api
             CreateOrderRequest request,
             [FromHeader(Name = "X-User-Id")] string? userId,
             [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
+            [FromHeader(Name = "X-Admission-Token")] string? admissionToken,
             OrdersDbContext db,
             ConnectionMultiplexer mux,
+            AdmissionChecker admission,
             ILoggerFactory loggerFactory,
             IRequestClient<ValidateHold> validate,
             IBus bus,
@@ -52,6 +55,32 @@ public static class Api
             if (request.Items.Any(i => i.UnitPrice < 0)) errors["items"] = ["precios no negativos"];
             if (!request.PaymentToken.StartsWith("tok_mock_", StringComparison.Ordinal)) errors["paymentToken"] = ["token mock inválido (usar POST /api/payments/token)"];
             if (errors.Count > 0) return Results.ValidationProblem(errors);
+
+            // Turno atado al evento (ADR-012): el token dice PARA QUÉ evento es
+            // el turno; si es de otro (o la sesión salió), se rechaza acá.
+            // Missing = fail-open a propósito (ver AdmissionChecker).
+            var admissionCheck = await admission.CheckAsync(admissionToken, request.EventId.ToString());
+            if (admissionCheck is AdmissionCheckResult.WrongEvent)
+            {
+                return Results.Problem(
+                    title: "este turno es para otro evento: hacé la fila del evento que querés comprar",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    extensions: new Dictionary<string, object?> { ["error"] = "admission_for_other_event" });
+            }
+            if (admissionCheck is AdmissionCheckResult.Revoked)
+            {
+                return Results.Problem(
+                    title: "saliste de la fila: volvé a entrar para comprar",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    extensions: new Dictionary<string, object?> { ["error"] = "admission_revoked" });
+            }
+            if (admissionCheck is AdmissionCheckResult.Invalid)
+            {
+                return Results.Problem(
+                    title: "turno inválido o vencido: volvé a entrar a la fila",
+                    statusCode: StatusCodes.Status401Unauthorized,
+                    extensions: new Dictionary<string, object?> { ["error"] = "admission_invalid" });
+            }
 
             var existing = await db.Orders.FirstOrDefaultAsync(o => o.IdempotencyKey == idempotencyKey, ct);
             if (existing is not null)

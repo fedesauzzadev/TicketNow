@@ -24,6 +24,12 @@ builder.Services.AddSingleton(_ => ConnectionMultiplexer.Connect(redisConnection
 
 builder.Services.AddScoped<HoldService>();
 builder.Services.AddScoped<InventoryReconciler>();
+
+// Bindeo turno→evento + revocación (ADR-012): ver OrdersService/Program.cs.
+builder.Services.AddSingleton<AdmissionTokenService>();
+builder.Services.AddScoped(sp => new AdmissionChecker(
+    sp.GetRequiredService<AdmissionTokenService>(),
+    sp.GetRequiredService<ConnectionMultiplexer>().GetDatabase()));
 builder.Services.AddHostedService<HoldSweeper>();
 builder.Services.AddHostedService<ReconcilerWorker>();
 

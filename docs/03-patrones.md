@@ -39,6 +39,12 @@ K efectivo = min(
 - Config: override admin > catálogo (`onsale-config`, caché 30 s). Catálogo caído → fail-open con lo último sabido (o override).
 - Fallback REST: `GET /api/queue/me` re-emite el admission token si la sesión ya está admitida (un cliente que perdió el push de SignalR lo recupera polleando).
 
+**Detalles de implementación (bindeo + revocación, ADR-012):**
+
+- El turno es POR EVENTO aunque las colas ya eran claves separadas: `POST /holds` y `POST /orders` exigen `token.event == evento comprado` (403 `admission_for_other_event`). El gateway no puede hacerlo (no conoce el evento sin parsear bodies): lo hace el que vende.
+- Salir = perder el turno: `LeaveAsync` escribe `revoked-session:{session}` (TTL 5 min); `EnterAsync` lo limpia (volver es turno nuevo). Sin token en el request: fail-open documentado (el gateway garantiza presencia en prod).
+- Efecto UX que parecía "cola compartida": entrar a un evento vacío admite al instante (correcto: sin fila no hay espera) y el token stale del evento anterior viajaba en el header — ahora el servidor lo rechaza y la SPA lo descarta al cambiar de evento.
+
 **Dónde vive.** queue-service + gateway (exigencia del token). Referencias: AWS Virtual Waiting Room reference architecture; Cloudflare Waiting Room.
 
 ---

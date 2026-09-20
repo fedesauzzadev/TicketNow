@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using StackExchange.Redis;
 using TicketNow.ServiceDefaults;
 
 namespace TicketNow.InventoryService;
@@ -16,12 +17,38 @@ public static class Api
             CreateHoldRequest request,
             [FromHeader(Name = "X-User-Id")] string? userId,
             [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
+            [FromHeader(Name = "X-Admission-Token")] string? admissionToken,
             HoldService holds,
+            AdmissionChecker admission,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(userId))
             {
                 return Results.Problem(title: "falta el header X-User-Id (hasta Fase 6, sin JWT)", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            // Turno atado al evento (ADR-012): ver OrdersService/Api.cs.
+            var admissionCheck = await admission.CheckAsync(admissionToken, request.EventId.ToString());
+            if (admissionCheck is AdmissionCheckResult.WrongEvent)
+            {
+                return Results.Problem(
+                    title: "este turno es para otro evento: hacé la fila del evento que querés comprar",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    extensions: new Dictionary<string, object?> { ["error"] = "admission_for_other_event" });
+            }
+            if (admissionCheck is AdmissionCheckResult.Revoked)
+            {
+                return Results.Problem(
+                    title: "saliste de la fila: volvé a entrar para comprar",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    extensions: new Dictionary<string, object?> { ["error"] = "admission_revoked" });
+            }
+            if (admissionCheck is AdmissionCheckResult.Invalid)
+            {
+                return Results.Problem(
+                    title: "turno inválido o vencido: volvé a entrar a la fila",
+                    statusCode: StatusCodes.Status401Unauthorized,
+                    extensions: new Dictionary<string, object?> { ["error"] = "admission_invalid" });
             }
 
             var result = await holds.CreateHoldAsync(request.EventId, request.ZoneId, userId.Trim(), request.Qty, idempotencyKey, ct);

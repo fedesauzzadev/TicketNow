@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TicketNow.UnitTests;
@@ -11,9 +12,11 @@ using TicketNow.UnitTests;
 namespace TicketNow.UnitTests.TestMigrations.Catalog
 {
     [DbContext(typeof(TestCatalogDbContext))]
-    partial class TestCatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920032037_TestInit_MaidenNoQueue")]
+    partial class TestInit_MaidenNoQueue
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

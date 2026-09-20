@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TicketNow.UnitTests;
@@ -11,9 +12,11 @@ using TicketNow.UnitTests;
 namespace TicketNow.UnitTests.TestMigrations.Catalog
 {
     [DbContext(typeof(TestCatalogDbContext))]
-    partial class TestCatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920031207_TestInit_Bands")]
+    partial class TestInit_Bands
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -315,7 +318,7 @@ namespace TicketNow.UnitTests.TestMigrations.Catalog
                             MaxPerAccount = 4,
                             OpensAt = new DateTimeOffset(new DateTime(2026, 12, 1, 12, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             PowDifficulty = 0,
-                            RequiresQueue = false
+                            RequiresQueue = true
                         });
                 });
 

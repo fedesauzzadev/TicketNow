@@ -22,6 +22,13 @@ builder.Services.AddDbContext<OrdersDbContext>(options => options
 
 builder.Services.AddSingleton<QrService>();
 
+// Bindeo turno→evento + revocación (ADR-012): el gateway valida firma, pero
+// solo acá se sabe QUÉ evento se compra.
+builder.Services.AddSingleton<AdmissionTokenService>();
+builder.Services.AddScoped(sp => new AdmissionChecker(
+    sp.GetRequiredService<AdmissionTokenService>(),
+    sp.GetRequiredService<ConnectionMultiplexer>().GetDatabase()));
+
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
     ?? throw new InvalidOperationException("ConnectionStrings:Redis no configurado (lock de idempotencia)");
 builder.Services.AddSingleton(_ => ConnectionMultiplexer.Connect(redisConnectionString));

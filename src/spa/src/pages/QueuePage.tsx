@@ -140,6 +140,8 @@ export default function QueuePage() {
   }, [onsaleId, setupRealtime]);
 
   useEffect(() => {
+    // Turno por evento (ADR-012): si venías de otro evento, ese turno no vale acá.
+    useQueueStore.getState().clearForOnsale(onsaleId);
     enter();
     return () => {
       const connection = connectionRef.current;

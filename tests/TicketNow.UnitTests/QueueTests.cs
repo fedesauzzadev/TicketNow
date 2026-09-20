@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using StackExchange.Redis;
 using TicketNow.Contracts.Events;
 using TicketNow.QueueService;
 using TicketNow.ServiceDefaults;
@@ -238,6 +239,55 @@ public class QueueTests : IClassFixture<RedisFixture>
     }
 
     private sealed record StatsDto(string OnsaleId, long Waiting, long Admitted, int Rate, int Capacity);
+
+    // ADR-012: salir revoca el turno aunque el JWT siga vigente.
+    [Fact]
+    public async Task Salir_marca_la_sesion_como_revocada()
+    {
+        using var factory = CreateFactory();
+        var client = factory.CreateClient();
+        var onsaleId = $"onsale-{Guid.NewGuid():N}";
+        await ConfigureAsync(client, onsaleId, maxConcurrent: 2);
+
+        var session = await EnterAsync(client, onsaleId);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<AdmissionService>().RunCycleAsync(CancellationToken.None);
+        }
+        var status = await client.GetFromJsonAsync<StatusDto>($"/api/queue/me?sessionId={session}");
+        Assert.True(status!.Admitted);
+
+        var left = await client.DeleteAsync($"/api/queue/me?sessionId={session}");
+        Assert.Equal(HttpStatusCode.NoContent, left.StatusCode);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var mux = scope.ServiceProvider.GetRequiredService<ConnectionMultiplexer>();
+            Assert.True(await mux.GetDatabase().KeyExistsAsync(AdmissionChecker.RevokedKey(session)));
+        }
+    }
+
+    // ADR-012: volver a entrar limpia la revocación (turno nuevo, tokens nuevos).
+    [Fact]
+    public async Task Reentrar_limpia_la_revocacion_previa()
+    {
+        using var factory = CreateFactory();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var store = scope.ServiceProvider.GetRequiredService<QueueStore>();
+            var mux = scope.ServiceProvider.GetRequiredService<ConnectionMultiplexer>();
+            var onsaleId = $"onsale-{Guid.NewGuid():N}";
+            var sessionId = Guid.NewGuid().ToString("N");
+
+            await store.EnterAsync(onsaleId, sessionId, userId: "u1");
+            await store.AdmitAsync(onsaleId, sessionId, leaseSeconds: 60);
+            await store.LeaveAsync(onsaleId, sessionId, wasAdmitted: true);
+            Assert.True(await mux.GetDatabase().KeyExistsAsync(AdmissionChecker.RevokedKey(sessionId)));
+
+            await store.EnterAsync(onsaleId, sessionId, userId: "u1");
+            Assert.False(await mux.GetDatabase().KeyExistsAsync(AdmissionChecker.RevokedKey(sessionId)));
+        }
+    }
 
     // Fase 6: PoW exigido — sin prueba hay challenge (428); con mala prueba
     // otro challenge (un solo uso); con prueba válida se entra.
