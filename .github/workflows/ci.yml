@@ -56,7 +56,7 @@ jobs:
           TICKETNOW_TEST_RABBITMQ_PORT: 5672
           TICKETNOW_TEST_RABBITMQ_USER: ticketnow
           TICKETNOW_TEST_RABBITMQ_PASS: ticketnow
-        run: dotnet test --no-build -c Release --logger "github"
+        run: dotnet test --no-build -c Release --logger "GitHubActions"
 
   compose-validate:
     runs-on: ubuntu-latest
