@@ -4,6 +4,12 @@ Plataforma didáctica de venta de entradas para eventos y recitales, diseñada p
 
 > **Objetivo del proyecto:** aplicar, en un caso lo más cercano posible a producción, los patrones que usan los sistemas de ticketing reales: fila virtual (waiting room), reservas atómicas de inventario, sagas distribuidas, outbox transaccional, control de admisión, backpressure y observabilidad de extremo a extremo.
 
+## Mapa del sistema
+
+![Mapa semántico de TicketNow](docs/mapa-del-sistema.svg)
+
+> [Versión completa con explicación](https://fedesauzzadev.github.io/TicketNow/mapa-del-sistema.html) (GitHub Pages) · La idea central: **la tormenta se ordena en la puerta; adentro, todo es contado o compensado.**
+
 ## Stack
 
 | Capa | Tecnología |
